@@ -1,0 +1,2 @@
+# Host-side tooling only. Firmware has no pip dependencies.
+mpremote>=1.25.0,<2
