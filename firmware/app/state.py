@@ -56,7 +56,8 @@ class State:
         self.sensors = {name: {"status": "starting", "last_success_s": None,
                                "error": None, "failures": 0} for name in SENSOR_FIELDS}
         self.wifi = {"state": "starting", "ip": None, "rssi": None}
-        self.services = {"display": "starting" if cfg.DISPLAY_ENABLED else "disabled",
+        self.display_enabled = cfg.DISPLAY_ENABLED
+        self.services = {"display": "starting" if cfg.DISPLAY_ENABLED else "off",
                          "http": "starting", "mqtt": "starting" if cfg.MQTT_ENABLED else "disabled"}
         self.history = History(cfg.HISTORY_CAPACITY)
         self.i2c_addresses = []
@@ -68,6 +69,11 @@ class State:
 
     def uptime(self):
         return self.uptime_ms // 1000
+
+    def toggle_display(self):
+        self.display_enabled = not self.display_enabled
+        self.services["display"] = "starting" if self.display_enabled else "off"
+        return self.display_enabled
 
     def success(self, name, readings):
         self.readings.update({k: round(v, 2) if isinstance(v, float) else v
@@ -101,7 +107,8 @@ class State:
         alerts = make_alerts(readings, sensors, self.cfg)
         return {"schema_version": 2, "firmware_version": "1.0.0", "device_id": self.device_id,
                 "device_name": self.cfg.DEVICE_NAME, "board": "Pico WH + Sense HAT SKU22366",
-                "uptime_s": now, "readings": readings, "sensors": sensors,
+                "uptime_s": now, "display_enabled": self.display_enabled,
+                "readings": readings, "sensors": sensors,
                 "wifi": dict(self.wifi), "services": dict(self.services), "alerts": alerts,
                 "i2c_addresses": self.i2c_addresses[:], "free_heap_bytes": gc.mem_free(),
                 "history": {"count": self.history.count, "capacity": self.history.capacity,

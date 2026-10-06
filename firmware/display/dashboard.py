@@ -16,6 +16,9 @@ class Display:
         self.warning = rgb565(255, 170, 70)
         self.background = rgb565(8, 20, 32)
 
+    def set_enabled(self, enabled):
+        self.lcd.set_enabled(enabled)
+
     async def render(self, status):
         r = status["readings"]
         wifi = status["wifi"]

@@ -8,7 +8,7 @@ A self-contained MicroPython environmental monitor for the **Raspberry Pi Pico W
 - A 240 × 135 colour LCD dashboard, using a 7.5 KiB stripe buffer.
 - Wi-Fi connection and automatic reconnect, with offline sensing and LCD operation.
 - A responsive browser dashboard hosted directly by the Pico, without CDNs or a cloud service.
-- Read-only JSON API, per-sensor freshness/error reporting and editable threshold advisories.
+- JSON API, per-sensor freshness/error reporting, LCD control and editable threshold advisories.
 - Two hours of bounded RAM history by default, a temperature chart and CSV download.
 - Optional MQTT 3.1.1 QoS 0 publishing, disabled by default.
 - A host CSV logger for persistent readings, a hardware self-test, upload utility and GitHub Actions checks.
@@ -53,7 +53,7 @@ See [SETUP.md](SETUP.md) for the full guide and recovery instructions.
 | `firmware/sensors/` | CRC checking, factory calibration and sensor drivers |
 | `firmware/display/` | ST7789 stripe driver and LCD layout |
 | `firmware/app/` | Sampling, data freshness, history and advisories |
-| `firmware/services/` | Wi-Fi, read-only HTTP and optional MQTT |
+| `firmware/services/` | Wi-Fi, HTTP API and optional MQTT |
 | `firmware/www/` | Browser dashboard HTML, CSS and JavaScript |
 | `firmware/selftest.py` | I²C discovery, active sensor reads and LCD colour test |
 | `tools/` | Upload, host CSV logger and source ZIP packaging |
@@ -66,6 +66,7 @@ See [SETUP.md](SETUP.md) for the full guide and recovery instructions.
 | --- | --- |
 | `/` | Browser dashboard |
 | `/api/status` | Current readings, device state, advisories and sensor health |
+| `POST /api/display/toggle` | Toggle the LCD controller between on and sleep states |
 | `/api/history` | Bounded RAM samples as fields plus rows |
 | `/history.csv` | Downloadable CSV of the same history |
 | `/healthz` | HTTP 200 when all sensors are fresh and healthy, otherwise 503 |
@@ -95,13 +96,13 @@ node --check firmware/www/app.js
 python tools/package.py ../pico-sense-environment.zip
 ```
 
-The current suite has **22 host tests** plus Python and JavaScript syntax checks. No physical Pico/HAT was connected during development. The physical LCD, I²C bus, Wi-Fi operation and actual memory headroom still need the supplied board self-test and commissioning checklist. See [validation](Docs/VALIDATION.md).
+The current suite has **23 host tests** plus Python and JavaScript syntax checks. No physical Pico/HAT was connected during development. The physical LCD, I²C bus, Wi-Fi operation and actual memory headroom still need the supplied board self-test and commissioning checklist. See [validation](Docs/VALIDATION.md).
 
 ## Scope and practical limits
 
-This is a monitoring firmware release. Advisories are local LCD/browser messages and fields in JSON/MQTT. There are no pump, fan, relay or vent outputs, no battery management and no remote configuration writes. Wi-Fi operation means this is not a deep-sleep solar power design.
+This is a monitoring firmware release. Advisories are local LCD/browser messages and fields in JSON/MQTT. The only remote control is the transient LCD on/off toggle; there are no pump, fan, relay or vent outputs, no battery management and no persistent remote configuration writes. Wi-Fi operation means this is not a deep-sleep solar power design.
 
-HTTP and optional MQTT use plain TCP with no transport encryption; the dashboard is read-only and unauthenticated. Use a trusted LAN or isolated IoT network and keep it off the public Internet. Wi-Fi credentials never appear in API responses. History stored on the Pico is volatile and does not wear the flash through continual writes. Use the host logger or an MQTT consumer for long-term storage.
+HTTP and optional MQTT use plain TCP with no transport encryption; the dashboard and its LCD control are unauthenticated. Use a trusted LAN or isolated IoT network and keep it off the public Internet. Wi-Fi credentials never appear in API responses. History stored on the Pico is volatile and does not wear the flash through continual writes. Use the host logger or an MQTT consumer for long-term storage.
 
 For a greenhouse enclosure, leave airflow to the active sensors and keep the electronics dry. The board is not weatherproof.
 

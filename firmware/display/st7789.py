@@ -46,6 +46,7 @@ class ST7789:
         time.sleep_ms(120)
         self.command(0x29)
         time.sleep_ms(20)
+        self.enabled = True
         self.clear()
 
     def command(self, command, data=None):
@@ -75,6 +76,22 @@ class ST7789:
         self.frame.fill(colour)
         for y in range(0, self.HEIGHT, self.STRIPE):
             self.stripe(y)
+
+    def set_enabled(self, enabled):
+        enabled = bool(enabled)
+        if enabled == self.enabled:
+            return
+        if enabled:
+            self.command(0x11)  # Sleep out.
+            time.sleep_ms(120)
+            self.command(0x29)  # Display on.
+        else:
+            self.clear()
+            self.command(0x28)  # Display off.
+            time.sleep_ms(20)
+            self.command(0x10)  # Sleep in.
+            time.sleep_ms(120)
+        self.enabled = enabled
 
     def line(self, row, text, colour, background=0):
         self.frame.fill(background)

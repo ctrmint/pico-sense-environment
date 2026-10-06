@@ -2,12 +2,12 @@
 
 ## Checks performed for release 1.0.0
 
-- 22 automated host tests passed under CPython.
+- 23 automated host tests passed under CPython.
 - All firmware, tooling and test Python files passed syntax compilation.
 - Browser JavaScript passed `node --check`.
 - The archive was checked for intact Git metadata, clean status and credential exclusion.
 
-Host tests cover documented Sensirion CRC bytes, SHT31 conversion/CRC rejection and heater shutdown, BME280 reference temperature/pressure calculations and calibration sign extension, explicit SGP40/TCS34725 shutdown, LCD RGB565 bytes/controller bounds, wrap-safe uptime, ring-buffer retention, stale readings, real localhost HTTP requests and a fake MQTT broker receiving publications.
+Host tests cover documented Sensirion CRC bytes, SHT31 conversion/CRC rejection and heater shutdown, BME280 reference temperature/pressure calculations and calibration sign extension, explicit SGP40/TCS34725 shutdown, LCD RGB565 bytes/controller bounds and sleep/display commands, wrap-safe uptime, ring-buffer retention, stale readings, real localhost HTTP requests including LCD toggling and a fake MQTT broker receiving publications.
 
 These tests replace `machine`, `framebuf` and MicroPython timing functions. They check firmware logic and service behaviour, not electrical connections or native MicroPython performance. No claim of hardware verification is made.
 
@@ -21,6 +21,7 @@ These tests replace `machine`, `framebuf` and MicroPython timing functions. They
 - [ ] LCD shows correct red, green and blue and text is upright/in bounds.
 - [ ] Cold boot starts `main.py` without a traceback.
 - [ ] LCD IP matches the current router lease and dashboard opens.
+- [ ] Dashboard button turns the LCD controller off and back on.
 - [ ] JSON status reports SHT31 and BME280 as `ok` and `/healthz` returns 200.
 - [ ] After two minutes, chart displays valid history and CSV downloads correctly.
 - [ ] Advisory thresholds produce the intended messages for the installation.

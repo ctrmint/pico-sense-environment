@@ -1,4 +1,4 @@
-"""Bounded HTTP/1.0 read-only server. No dynamic HTML, no external assets."""
+"""Bounded HTTP/1.0 server. No dynamic HTML or external assets."""
 import json
 import uasyncio as asyncio
 from app.state import HISTORY_FIELDS
@@ -40,9 +40,9 @@ class HTTPServer:
                         "base-uri 'none'; object-src 'none'\r\n{}\r\n".format(
                             status, REASONS[status], content_type, extra))
 
-    async def error(self, writer, status):
+    async def error(self, writer, status, allowed="GET"):
         await self.headers(writer, status, "text/plain; charset=utf-8",
-                           "Allow: GET\r\n" if status == 405 else "")
+                           "Allow: {}\r\n".format(allowed) if status == 405 else "")
         await self.send(writer, REASONS[status])
 
     async def read_header(self, reader):
@@ -73,7 +73,14 @@ class HTTPServer:
             except ValueError:
                 await self.error(writer, 400)
                 return
-            if method != "GET":
+            if path == "/api/display/toggle":
+                if method != "POST":
+                    await self.error(writer, 405, "POST")
+                else:
+                    enabled = self.state.toggle_display()
+                    await self.headers(writer, 200, "application/json")
+                    await self.send(writer, json.dumps({"enabled": enabled}))
+            elif method != "GET":
                 await self.error(writer, 405)
             elif path in STATIC_FILES:
                 filename, mime = STATIC_FILES[path]

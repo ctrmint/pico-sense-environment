@@ -1,6 +1,6 @@
 # HTTP API, schema version 2
 
-Base URL: `http://<Pico-IP>` (append a port if configured). Responses are read-only, same-origin and uncached. There is no authentication/TLS on this LAN service. Unsupported paths return 404, non-GET methods return 405, oversized headers return 431 and excess client load may return 503.
+Base URL: `http://<Pico-IP>` (append a port if configured). Responses are same-origin and uncached. There is no authentication/TLS on this LAN service. Unsupported paths return 404, unsupported methods return 405, oversized headers return 431 and excess client load may return 503.
 
 ## GET /api/status
 
@@ -14,6 +14,7 @@ Illustrative response, not an actual hardware capture:
   "device_name": "Pico environment",
   "board": "Pico WH + Sense HAT SKU22366",
   "uptime_s": 120,
+  "display_enabled": true,
   "readings": {
     "temperature_c": 21.7,
     "humidity_pct": 64.2,
@@ -37,6 +38,18 @@ Illustrative response, not an actual hardware capture:
 Current values are rounded to two decimal places where applicable. Rounding does not imply that the sensor is accurate to that precision. Sensor status is `starting`, `ok`, `missing`, `error` or `stale`. Failed/stale readings are null; fields can be absent before their first reading. `last_success_s` remains available after failure for diagnosis and `age_s` is relative to the current uptime.
 
 SGP40 gas and TCS34725 light/colour fields are intentionally absent because those devices are powered down and not sampled.
+
+`display_enabled` is the requested LCD state. `services.display` reports `starting`, `ok`, `off` or `error`, so clients can distinguish the requested state from a hardware failure.
+
+## POST /api/display/toggle
+
+Toggles the LCD controller state and returns the new requested state:
+
+```json
+{"enabled": false}
+```
+
+When disabled, the firmware clears the display, sends ST7789 display-off and sleep-in commands, and stops rendering. Toggling it again sends sleep-out/display-on and resumes rendering. The state is volatile and resets to `DISPLAY_ENABLED` after reboot. This HAT exposes no software backlight control through its supplied interface, so the endpoint cannot guarantee removal of backlight power. Other methods on this path return 405 with `Allow: POST`.
 
 ## GET /api/history
 

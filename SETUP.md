@@ -21,7 +21,7 @@ MQTT_PASSWORD = ""
 
 Use Python string quoting for special characters. The file stays only in your local checkout and on your Pico. Do not use your Wi-Fi password as a dashboard/API parameter. No Wi-Fi access-point provisioning mode is enabled.
 
-Settings in `firmware/config.py` include device name, LCD enable, sampling cadence, history capacity, HTTP port, threshold advisories and optional MQTT. Re-upload changed files and reset to apply settings. With no secrets file, the firmware still measures/displays locally; Wi-Fi is shown as `unconfigured`.
+Settings in `firmware/config.py` include device name, initial LCD state, sampling cadence, history capacity, HTTP port, threshold advisories and optional MQTT. Re-upload changed files and reset to apply settings. With no secrets file, the firmware still measures/displays locally; Wi-Fi is shown as `unconfigured`.
 
 Default timing:
 
@@ -64,6 +64,8 @@ Sensor failures are printed individually. The self-test returns a boolean for se
 Read the LCD IP address or the `Dashboard: http://...` line in the USB shell. Browse to that address from the same LAN. If you change `HTTP_PORT`, include the port in the URL.
 
 The first history row can contain null readings while sensors initialise. The chart needs at least two valid temperature samples, usually one to two minutes after boot. The values on the page refresh every 5 seconds; environmental sensor readings change every 10 seconds. History refreshes approximately every 30 seconds.
+
+Use the button beside the connection badge to put the ST7789 controller into sleep mode or turn it back on. `DISPLAY_ENABLED` selects its initial state after boot. The HAT does not expose a backlight-control pin through its supplied interface, so controller sleep cannot guarantee that the backlight power—and all associated heat—is removed.
 
 The SHT31 reading is primary. BME280 temperature/humidity remain in the status panel and API for comparison. Differences can result from local heating and placement; the configurable disagreement advisory does not automatically recalibrate either sensor.
 

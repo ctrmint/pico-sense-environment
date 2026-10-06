@@ -27,18 +27,36 @@ async def housekeep(state):
 async def display_task(state):
     from display.dashboard import Display
     display = None
+    enabled = None
+    last_render = None
     while True:
         try:
             if display is None:
                 gc.collect()
                 display = Display(config.DEVICE_NAME)
-            await display.render(state.snapshot())
-            state.services["display"] = "ok"
+                enabled = True
+            if enabled != state.display_enabled:
+                display.set_enabled(state.display_enabled)
+                enabled = state.display_enabled
+                last_render = None
+            render_due = (last_render is None or time.ticks_diff(
+                time.ticks_ms(), last_render) >= config.DISPLAY_INTERVAL_S * 1000)
+            if enabled and render_due:
+                await display.render(state.snapshot())
+                state.services["display"] = "ok"
+                last_render = time.ticks_ms()
+            else:
+                if not enabled:
+                    state.services["display"] = "off"
         except (OSError, ValueError) as error:
             print("LCD failed:", type(error).__name__)
             state.services["display"] = "error"
             display = None
-        await asyncio.sleep(config.DISPLAY_INTERVAL_S)
+            enabled = None
+            last_render = None
+            await asyncio.sleep(config.DISPLAY_INTERVAL_S)
+            continue
+        await asyncio.sleep_ms(200)
 
 
 async def run():
@@ -56,8 +74,7 @@ async def run():
              asyncio.create_task(HTTPServer(config, state).run())]
     for name in DRIVERS:
         tasks.append(asyncio.create_task(sensor_task(name, i2c, state, config)))
-    if config.DISPLAY_ENABLED:
-        tasks.append(asyncio.create_task(display_task(state)))
+    tasks.append(asyncio.create_task(display_task(state)))
     if config.MQTT_ENABLED:
         from services.mqtt import MQTT
         tasks.append(asyncio.create_task(MQTT(config, state).run()))

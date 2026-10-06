@@ -12,13 +12,13 @@ SHT31 uses a CRC-checked single-shot reading and explicitly disables its optiona
 
 The housekeeping task accumulates uptime using wrap-safe tick differences once per second. There is no wall-clock assertion or dependency on NTP. History is an allocated ring buffer of tuples, bounded to the configured capacity. JSON history and CSV are streamed incrementally; responses snapshot row references so sampling cannot corrupt a download.
 
-The LCD task updates six text strips and yields between them. It avoids a full-screen 64,800-byte framebuffer. Display faults are reported separately from sensor faults.
+The LCD task updates six text strips and yields between them. It avoids a full-screen 64,800-byte framebuffer. The shared state carries the requested LCD state; the task applies ST7789 sleep/display commands and stops rendering while off. Display faults are reported separately from sensor faults.
 
 ## Networking
 
 Wi-Fi connection is timed and retries indefinitely without stopping sensors. The HTTP server starts once a Wi-Fi connection exists and binds all interfaces. The application keeps the listener alive through ordinary disconnect/reconnect cycles; the new IP appears on the LCD. This behaviour must still be checked on the physical board/router.
 
-The server accepts GET only, uses an exact asset path allowlist, bounds request headers and times out slow read/write operations. It has a low concurrent-client budget for the Pico heap. No credentials or configuration files are served, no cross-origin access is enabled and no browser dependency is downloaded from the Internet.
+The server accepts GET for data/assets and POST only for the exact LCD-toggle path. It uses an exact asset path allowlist, bounds request headers and times out slow read/write operations. It has a low concurrent-client budget for the Pico heap. No credentials or configuration files are served, no cross-origin access is enabled and no browser dependency is downloaded from the Internet.
 
 Optional MQTT is a small publisher, not a general client library. Every publication opens a timed TCP connection, performs CONNECT/CONNACK, sends a QoS 0 JSON publication and cleanly disconnects. This avoids maintaining subscription/keepalive state. QoS 0 provides no broker receipt acknowledgement. There is no offline queue, last will, TLS or automatic Home Assistant discovery.
 
