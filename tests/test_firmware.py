@@ -59,11 +59,10 @@ sys.modules['framebuf'] = types.SimpleNamespace(FrameBuffer=FrameBuffer, RGB565=
 
 import config
 from app.state import State, History, make_alerts
+from app.sampler import DRIVERS, disable_inactive_sensors
 from sensors.crc import crc8, encode_word, decode_word
 from sensors.sht31 import SHT31
-from sensors.sgp40 import SGP40, measurement_command
 from sensors.bme280 import BME280, parse_calibration, compensate
-from sensors.tcs34725 import TCS34725
 from display.st7789 import ST7789, rgb565
 from services.http import HTTPServer, parse_request
 from services.mqtt import packet, mqtt_string, connect_packet, MQTT
@@ -102,11 +101,16 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_word(b'\xbe\xef\x00')
 
-    def test_sgp_default_compensation_packet(self):
-        # Datasheet default RH 50% -> 0x8000; T 25 C -> 0x6666.
-        self.assertEqual(measurement_command(), b'\x26\x0f\x80\x00\xa2\x66\x66\x93')
-        self.assertEqual(decode_word(measurement_command(-100, -1)[2:5]), 0)
-        self.assertEqual(decode_word(measurement_command(200, 101)[5:]), 65535)
+    def test_inactive_sensors_are_powered_down_and_not_sampled(self):
+        bus = SensorBus()
+        disable_inactive_sensors(bus)
+        self.assertEqual(bus.writes, [(0x59, b'\x36\x15'),
+                                      (0x29, 0x80, b'\x00')])
+        self.assertEqual(set(DRIVERS), {'sht31', 'bme280'})
+        state = State(config, 'test')
+        self.assertEqual(set(state.sensors), {'sht31', 'bme280'})
+        self.assertNotIn('voc_raw', state.snapshot()['readings'])
+        self.assertNotIn('rgb', state.snapshot()['readings'])
 
     def test_bosch_temperature_pressure_reference_vector(self):
         calibration = ((27504, 26435, -1000),
@@ -189,21 +193,11 @@ class SensorTests(unittest.IsolatedAsyncioTestCase):
         result = await SHT31(bus).read()
         self.assertAlmostEqual(result['temperature_c'], 25)
         self.assertAlmostEqual(result['humidity_pct'], 50, places=2)
-        self.assertEqual(bus.writes[0], (0x45, b'\x24\x00'))
+        self.assertEqual(bus.writes, [(0x45, b'\x30\x66'),
+                                      (0x45, b'\x24\x00')])
         bus.response = b'\x66\x66\x00\x80\x00\xa2'
         with self.assertRaises(ValueError):
             await SHT31(bus).read()
-
-    async def test_sgp_raw_crc_and_selftest(self):
-        bus = SensorBus(encode_word(24000))
-        driver = SGP40(bus)
-        self.assertEqual(await driver.read(), {'voc_raw': 24000})
-        self.assertEqual(bus.writes[0][1], measurement_command())
-        bus.response = encode_word(0xD400)
-        self.assertTrue(await driver.self_test())
-        bus.response = encode_word(0x4B00)
-        with self.assertRaises(ValueError):
-            await driver.self_test()
 
     async def test_bme_register_flow(self):
         block = struct.pack('<HhhHhhhhhhhh', 27504, 26435, -1000,
@@ -219,16 +213,6 @@ class SensorTests(unittest.IsolatedAsyncioTestCase):
         bus.registers[0xD0] = 0x58
         with self.assertRaises(ValueError):
             BME280(bus)
-
-    async def test_tcs_channel_order_autoincrement_and_saturation(self):
-        bus = SensorBus(registers={0xB2: 0x44, 0xB3: 1, 0xB4: struct.pack('<HHHH', 43008, 123, 456, 789)})
-        result = await TCS34725(bus).read()
-        self.assertEqual(result['rgb'], {'r': 123, 'g': 456, 'b': 789})
-        self.assertEqual(result['light_raw'], 43008)
-        self.assertTrue(result['light_saturated'])
-        self.assertEqual(result['light_gain'], 4)
-        self.assertIn((0x29, 0xB4, 8), bus.reads)
-
 
 class HTTPTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -251,12 +235,15 @@ class HTTPTests(unittest.IsolatedAsyncioTestCase):
         await writer.wait_closed()
         return response.split(b'\r\n\r\n', 1)
 
-    async def test_status_contains_no_credentials_and_unavailable_voc_index(self):
+    async def test_status_contains_only_active_sensors_and_no_credentials(self):
         header, body = await self.request('/api/status')
         data = json.loads(body)
         self.assertIn(b'200 OK', header)
+        self.assertEqual(data['schema_version'], 2)
         self.assertEqual(data['device_id'], 'test-pico')
-        self.assertIsNone(data['readings']['voc_index'])
+        self.assertEqual(set(data['sensors']), {'sht31', 'bme280'})
+        self.assertNotIn('voc_raw', data['readings'])
+        self.assertNotIn('light_raw', data['readings'])
         self.assertNotIn('WIFI_PASSWORD', body.decode())
 
     async def test_history_json_csv_and_health(self):
@@ -265,7 +252,7 @@ class HTTPTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(body)['rows'][0][:2], [1, 21.5])
         header, body = await self.request('/history.csv')
         self.assertIn(b'attachment', header)
-        self.assertIn(b'1,21.5,,,,\r\n', body)
+        self.assertIn(b'1,21.5,,\r\n', body)
         header, _ = await self.request('/healthz')
         self.assertIn(b'503', header)
         for name in self.state.sensors:
@@ -301,6 +288,8 @@ class HTTPTests(unittest.IsolatedAsyncioTestCase):
                 header, body = await self.request(path)
                 self.assertIn(b'200', header)
                 self.assertIn(marker, body)
+                self.assertNotIn(b'Gas signal', body)
+                self.assertNotIn(b'Colour channels', body)
         finally:
             os.chdir(old)
 

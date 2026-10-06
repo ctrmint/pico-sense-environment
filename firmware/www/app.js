@@ -22,10 +22,6 @@ function renderStatus(s) {
   $('temperature').textContent = number(r.temperature_c);
   $('humidity').textContent = number(r.humidity_pct);
   $('pressure').textContent = number(r.pressure_hpa);
-  $('gas').textContent = number(r.voc_raw, 0);
-  $('light').textContent = number(r.light_raw, 0);
-  $('rgb').textContent = r.rgb ? `R ${r.rgb.r} / G ${r.rgb.g} / B ${r.rgb.b}` : 'R -- / G -- / B --';
-  $('gain').textContent = r.light_gain == null ? 'Sensor unavailable' : `${r.light_gain}× gain · ${number(r.light_integration_ms)} ms integration${r.light_saturated ? ' · SATURATED' : ''}`;
   $('connection').textContent = 'Connected';
   $('connection').className = 'badge ok';
   $('alerts').replaceChildren();
@@ -38,7 +34,6 @@ function renderStatus(s) {
   const details = {'Device ID': s.device_id, 'IP address': s.wifi.ip || '--',
     'Wi-Fi signal': s.wifi.rssi == null ? '--' : s.wifi.rssi + ' dBm',
     'Uptime': Math.floor(s.uptime_s / 3600) + 'h ' + Math.floor(s.uptime_s % 3600 / 60) + 'm',
-    'Gas compensation': s.gas_compensation === 'sht31' ? 'Live SHT31 temperature / humidity' : 'Default 25 °C / 50% RH',
     'BME temperature': number(r.bme_temperature_c) + ' °C',
     'BME humidity': number(r.bme_humidity_pct) + ' %',
     'Free memory': Math.round(s.free_heap_bytes / 1024) + ' KiB',
@@ -106,8 +101,7 @@ async function poll() {
     }
   } catch (_) {
     $('connection').textContent = 'Disconnected'; $('connection').className = 'badge error';
-    for (const id of ['temperature', 'humidity', 'pressure', 'gas', 'light']) $(id).textContent = '--';
-    $('rgb').textContent = 'R -- / G -- / B --';
+    for (const id of ['temperature', 'humidity', 'pressure']) $(id).textContent = '--';
     $('updated').textContent = 'Device unreachable. ' + (lastSuccess ? 'Last received ' + lastSuccess.toLocaleTimeString() + '.' : '') + ' Retrying...';
   } finally { setTimeout(poll, 5000); }
 }

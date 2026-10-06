@@ -2,13 +2,14 @@
 import machine
 import time
 import uasyncio as asyncio
-from app.sampler import DRIVERS
+from app.sampler import disable_inactive_sensors, DRIVERS
 
 
 async def run():
     machine.Pin(3, machine.Pin.OUT, value=1)
     time.sleep_ms(100)
     i2c = machine.I2C(1, sda=machine.Pin(6), scl=machine.Pin(7), freq=40_000)
+    disable_inactive_sensors(i2c)
     found = i2c.scan()
     print("I2C:", ["0x{:02X}".format(a) for a in found])
     passed = True
@@ -19,8 +20,6 @@ async def run():
             continue
         try:
             driver = factory(i2c, address)
-            if name == "sgp40":
-                await driver.self_test()
             print("OK", name, await driver.read())
         except (OSError, ValueError) as error:
             passed = False

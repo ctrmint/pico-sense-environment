@@ -10,8 +10,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-FIELDS = ['received_at_utc', 'device_id', 'uptime_s', 'temperature_c', 'humidity_pct',
-          'pressure_hpa', 'voc_raw', 'light_raw', 'wifi_rssi', 'gas_compensation']
+READING_FIELDS = ['temperature_c', 'humidity_pct', 'pressure_hpa']
+FIELDS = ['received_at_utc', 'device_id', 'uptime_s'] + READING_FIELDS + ['wifi_rssi']
 
 
 def run(url, output, interval):
@@ -33,10 +33,10 @@ def run(url, output, interval):
             try:
                 with urllib.request.urlopen(url.rstrip('/') + '/api/status', timeout=10) as response:
                     status = json.load(response)
-                row = {key: status['readings'].get(key) for key in FIELDS[3:8]}
+                row = {key: status['readings'].get(key) for key in READING_FIELDS}
                 row.update(received_at_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                            device_id=status['device_id'], uptime_s=status['uptime_s'],
-                           wifi_rssi=status['wifi']['rssi'], gas_compensation=status['gas_compensation'])
+                           wifi_rssi=status['wifi']['rssi'])
                 writer.writerow(row)
                 file.flush()
                 print(row['received_at_utc'], row['temperature_c'], row['humidity_pct'])

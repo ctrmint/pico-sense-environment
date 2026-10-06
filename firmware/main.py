@@ -6,7 +6,7 @@ import ubinascii
 import uasyncio as asyncio
 import config
 from app.state import State
-from app.sampler import sensor_task, DRIVERS
+from app.sampler import disable_inactive_sensors, sensor_task, DRIVERS
 from services.wifi import WiFi
 from services.http import HTTPServer
 
@@ -47,6 +47,7 @@ async def run():
     address_select = machine.Pin(3, machine.Pin.OUT, value=1)
     time.sleep_ms(100)
     i2c = machine.I2C(1, sda=machine.Pin(6), scl=machine.Pin(7), freq=config.I2C_FREQUENCY)
+    disable_inactive_sensors(i2c)
     device_id = "pico-" + ubinascii.hexlify(machine.unique_id()).decode()
     state = State(config, device_id)
     print("Pico environment 1.0.0", device_id)

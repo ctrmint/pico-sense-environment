@@ -34,10 +34,8 @@ The project does **not** configure Home Assistant automatically. Subscribe an ex
 | Temperature | `value_json.readings.temperature_c` | `°C` |
 | Relative humidity | `value_json.readings.humidity_pct` | `%` |
 | Station pressure | `value_json.readings.pressure_hpa` | `hPa` |
-| Raw gas signal | `value_json.readings.voc_raw` | Raw count |
-| Clear light channel | `value_json.readings.light_raw` | Raw count |
 
-Configure expiry relative to `MQTT_INTERVAL_S`, handle null/error readings and give each entity a unique ID. Do not assign CO₂, VOC Index or lux units to the raw channels. For a REST integration, poll `/api/status` and extract the same `readings` fields. Consult your installed Home Assistant version's official documentation for the current configuration syntax.
+Configure expiry relative to `MQTT_INTERVAL_S`, handle null/error readings and give each entity a unique ID. For a REST integration, poll `/api/status` and extract the same `readings` fields. Gas, ambient-light and colour entities are not available because those sensors are disabled. Consult your installed Home Assistant version's official documentation for the current configuration syntax.
 
 ## Persistent CSV
 

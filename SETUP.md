@@ -27,8 +27,7 @@ Default timing:
 
 | Task | Default |
 | --- | --- |
-| SGP40 raw gas measurement | Every 1 second |
-| SHT31 / BME280 / TCS34725 | Every 10 seconds |
+| SHT31 / BME280 measurement | Every 10 seconds |
 | LCD update / browser polling | Every 5 seconds |
 | RAM history capture | Every 60 seconds |
 | History size | 120 samples, approximately 2 hours |
@@ -56,7 +55,7 @@ import uasyncio as asyncio
 asyncio.run(selftest.run())
 ```
 
-Expected scan addresses are `0x29`, `0x45`, `0x59`, `0x76`. The script reads every sensor, validates CRCs where provided and runs the SGP40 built-in self-test. The LCD should show successive **red, green and blue** backgrounds with their labels. A panel has no readback channel here, so visible colour/orientation checks must be made by you.
+The physical HAT normally scans as `0x29`, `0x45`, `0x59`, `0x76`. The script explicitly leaves the SGP40 heater and TCS34725 ADC off, then reads only the active SHT31 (`0x45`) and BME280 (`0x76`) sensors. The LCD should show successive **red, green and blue** backgrounds with their labels. This tests the display, not the disabled colour sensor. A panel has no readback channel here, so visible colour/orientation checks must be made by you.
 
 Sensor failures are printed individually. The self-test returns a boolean for sensor/read errors; a visually blank LCD cannot be detected automatically. After testing, Ctrl+D to restart the application. Run `selftest` only after stopping the normal app, because both use the same bus and display.
 
@@ -81,7 +80,6 @@ The SHT31 reading is primary. BME280 temperature/humidity remain in the status p
 | Wi-Fi retries | Correct SSID/password, 2.4 GHz enabled, signal strength and router policy |
 | Dashboard unreachable | Same LAN, client/AP isolation disabled, correct current DHCP address, no HTTPS URL |
 | Browser shows old values or `--` | Sensor freshness in Device status; CRC failures are surfaced and invalid values cleared |
-| Light sensor saturation | Bright direct sun may exceed fixed gain/integration; lower gain/integration in the driver after validating readings |
 | MQTT retrying | Broker IP/port, username/password and broker publish permissions |
 | Repeated `MemoryError` | Disable MQTT/display to diagnose, reduce history capacity and avoid concurrent dashboard clients |
 
