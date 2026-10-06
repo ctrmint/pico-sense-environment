@@ -15,6 +15,13 @@ async function getJSON(path) {
   } finally { clearTimeout(timer); }
 }
 
+function renderLCDButton(enabled) {
+  const button = $('lcd-toggle');
+  button.textContent = enabled ? 'Turn LCD off' : 'Turn LCD on';
+  button.setAttribute('aria-pressed', String(enabled));
+  button.disabled = false;
+}
+
 function renderStatus(s) {
   const r = s.readings;
   $('name').textContent = s.device_name;
@@ -24,6 +31,7 @@ function renderStatus(s) {
   $('pressure').textContent = number(r.pressure_hpa);
   $('connection').textContent = 'Connected';
   $('connection').className = 'badge ok';
+  renderLCDButton(s.display_enabled);
   $('alerts').replaceChildren();
   const alerts = s.alerts.slice();
   if (s.services.display === 'error') alerts.push('LCD unavailable');
@@ -37,7 +45,7 @@ function renderStatus(s) {
     'BME temperature': number(r.bme_temperature_c) + ' °C',
     'BME humidity': number(r.bme_humidity_pct) + ' %',
     'Free memory': Math.round(s.free_heap_bytes / 1024) + ' KiB',
-    'MQTT': s.services.mqtt, 'Firmware': s.firmware_version};
+    'LCD': s.services.display, 'MQTT': s.services.mqtt, 'Firmware': s.firmware_version};
   for (const [label, value] of Object.entries(details)) {
     const dt = document.createElement('dt'); dt.textContent = label;
     const dd = document.createElement('dd'); dd.textContent = value; $('device').append(dt, dd);
@@ -54,6 +62,25 @@ function renderStatus(s) {
   $('history-info').textContent = `${s.history.count} of ${s.history.capacity} samples · one every ${s.history.interval_s}s · RAM history resets at reboot.`;
   lastSuccess = new Date();
   $('updated').textContent = 'Last received ' + lastSuccess.toLocaleTimeString() + ' · refreshes every 5 seconds';
+}
+
+async function toggleLCD() {
+  const button = $('lcd-toggle');
+  button.disabled = true;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+    try {
+      const response = await fetch('/api/display/toggle', {
+        method: 'POST', cache: 'no-store', signal: controller.signal
+      });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      renderLCDButton((await response.json()).enabled);
+    } finally { clearTimeout(timer); }
+  } catch (_) {
+    button.disabled = false;
+    $('updated').textContent = 'Could not change LCD state. Retrying status normally.';
+  }
 }
 
 function drawHistory() {
@@ -101,9 +128,11 @@ async function poll() {
     }
   } catch (_) {
     $('connection').textContent = 'Disconnected'; $('connection').className = 'badge error';
+    $('lcd-toggle').disabled = true;
     for (const id of ['temperature', 'humidity', 'pressure']) $(id).textContent = '--';
     $('updated').textContent = 'Device unreachable. ' + (lastSuccess ? 'Last received ' + lastSuccess.toLocaleTimeString() + '.' : '') + ' Retrying...';
   } finally { setTimeout(poll, 5000); }
 }
 window.addEventListener('resize', drawHistory);
+$('lcd-toggle').addEventListener('click', toggleLCD);
 poll();

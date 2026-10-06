@@ -143,6 +143,14 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(lcd.spi.writes[1], struct.pack('>HH', 40, 279))
         self.assertEqual(lcd.spi.writes[3], struct.pack('>HH', 181, 187))
         self.assertEqual(len(lcd.spi.writes[-1]), 240 * 7 * 2)
+        lcd.spi.writes.clear()
+        lcd.set_enabled(False)
+        self.assertEqual(lcd.spi.writes[-2:], [b'\x28', b'\x10'])
+        self.assertFalse(lcd.enabled)
+        lcd.spi.writes.clear()
+        lcd.set_enabled(True)
+        self.assertEqual(lcd.spi.writes, [b'\x11', b'\x29'])
+        self.assertTrue(lcd.enabled)
 
     def test_http_request_parsing(self):
         self.assertEqual(parse_request(b'GET /api/status?x=1 HTTP/1.1\r\n\r\n'), ('GET', '/api/status'))
@@ -260,6 +268,19 @@ class HTTPTests(unittest.IsolatedAsyncioTestCase):
         header, _ = await self.request('/healthz')
         self.assertIn(b'200', header)
 
+    async def test_display_toggle_requires_post_and_updates_status(self):
+        header, _ = await self.request('/api/display/toggle')
+        self.assertIn(b'405', header)
+        self.assertIn(b'Allow: POST', header)
+        header, body = await self.request('/api/display/toggle', method='POST')
+        self.assertIn(b'200 OK', header)
+        self.assertEqual(json.loads(body), {'enabled': False})
+        self.assertFalse(self.state.snapshot()['display_enabled'])
+        self.assertEqual(self.state.services['display'], 'off')
+        _, body = await self.request('/api/display/toggle', method='POST')
+        self.assertEqual(json.loads(body), {'enabled': True})
+        self.assertTrue(self.state.snapshot()['display_enabled'])
+
     async def test_post_traversal_and_oversize_rejected(self):
         header, _ = await self.request('/api/status', method='POST')
         self.assertIn(b'405', header)
@@ -290,6 +311,10 @@ class HTTPTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(marker, body)
                 self.assertNotIn(b'Gas signal', body)
                 self.assertNotIn(b'Colour channels', body)
+                if path == '/':
+                    self.assertIn(b'id="lcd-toggle"', body)
+                elif path == '/app.js':
+                    self.assertIn(b'/api/display/toggle', body)
         finally:
             os.chdir(old)
 
