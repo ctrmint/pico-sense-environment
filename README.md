@@ -1,111 +1,96 @@
 # Pico Sense Environment
 
-A self-contained MicroPython environmental monitor for the **Raspberry Pi Pico WH** and **SB Components Pico Sense HAT SKU22366**. Flash the Pico W firmware, copy the project to the board, set your Wi-Fi credentials and open the IP address shown on the LCD.
+A self-contained MicroPython environmental monitor for the **Raspberry Pi Pico WH** and **SB Components Pico Sense HAT SKU22366**. It provides local temperature, humidity and pressure readings through the onboard LCD, a browser dashboard, JSON APIs and optional MQTT.
 
-## What is included
+## Features
 
-- Active SHT31 temperature/humidity and BME280 pressure sensing.
-- A 240 × 135 colour LCD dashboard, using a 7.5 KiB stripe buffer.
-- Wi-Fi connection and automatic reconnect, with offline sensing and LCD operation.
-- A responsive browser dashboard hosted directly by the Pico, without CDNs or a cloud service.
-- JSON API, per-sensor freshness/error reporting, LCD control and editable threshold advisories.
-- Two hours of bounded RAM history by default, a temperature chart and CSV download.
-- Optional MQTT 3.1.1 QoS 0 publishing, disabled by default.
-- A host CSV logger for persistent readings, a hardware self-test, upload utility and GitHub Actions checks.
+- SHT31 temperature/humidity and BME280 pressure sensing.
+- Responsive web dashboard hosted directly by the Pico.
+- ST7789 LCD dashboard with browser-controlled sleep/wake.
+- Sensor health, threshold advisories and two hours of RAM history by default.
+- CSV downloads, a host-side logger and optional MQTT 3.1.1 publishing.
+- Wi-Fi reconnection, bounded memory use and independent sensor tasks.
 
-The SGP40 gas sensor and TCS34725 colour sensor are deliberately not sampled. At startup the firmware sends the SGP40 heater-off command and powers down the TCS34725 ADC. Their readings are omitted from state, history, APIs, MQTT and dashboards. Pressure is local station pressure.
+The SGP40 gas sensor and TCS34725 colour sensor are deliberately not sampled. Startup explicitly disables the SGP40 heater and powers down the TCS34725 ADC.
+
+> [!IMPORTANT]
+> The HAT's compact layout can thermally couple the Pico, LCD and backlight to its onboard environmental sensors, producing temperature readings substantially above ambient. LCD sleep does not switch the hard-wired backlight. Use a thermally separated external sensor when accurate ambient temperature is required; investigation is tracked in [issue #3](https://github.com/ctrmint/pico-sense-environment/issues/3).
 
 ## Quick start
 
-1. Unzip the archive. The `pico-sense-environment` directory is already an initialised local Git repository, with an initial commit and no remote.
-2. With USB power disconnected, fit the Pico WH to the HAT using its orientation markings. Check the USB/BOOTSEL end against the board markings before powering it.
-3. Download the **stable Pico W** MicroPython UF2 from [micropython.org/download/RPI_PICO_W](https://micropython.org/download/RPI_PICO_W/). Pico WH uses the same firmware as Pico W. This project targets MicroPython **1.25 or newer**; 1.29.0 was the current stable download when this repository was prepared.
-4. Hold BOOTSEL while plugging in USB. Copy the UF2 onto the `RPI-RP2` drive. The board will reboot.
-5. Copy `firmware/secrets.example.py` to **`firmware/secrets.py`**, then set your **2.4 GHz** Wi-Fi SSID/password. Keep the file out of Git.
-6. Upload the **contents of `firmware/`** to the Pico filesystem root, preserving subfolders. Do not upload the repository root.
-7. Reboot the Pico. Open `http://<IP shown on LCD>/` on a device on the same LAN. It can take a few seconds for initial readings and Wi-Fi to become available.
+1. With USB disconnected, fit the Pico WH to the HAT using the board's orientation markings.
+2. Install the stable **RPI_PICO_W** MicroPython firmware. Pico WH uses the Pico W image; this project targets MicroPython 1.25 or newer.
+3. Copy `firmware/secrets.example.py` to `firmware/secrets.py` and add your 2.4 GHz Wi-Fi credentials.
+4. Upload the contents of `firmware/` to the Pico filesystem root, preserving its subdirectories.
+5. Reboot and open the IP address shown on the LCD from a device on the same LAN.
 
-For step 6, use [Thonny](https://thonny.org/) or the command-line uploader:
+Use [Thonny](https://thonny.org/) or the included uploader:
 
 ```bash
-cd pico-sense-environment
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 cp firmware/secrets.example.py firmware/secrets.py
-# Edit firmware/secrets.py before the upload.
+# Edit firmware/secrets.py before uploading.
 python tools/upload.py --port /dev/ttyACM0
 ```
 
-On Windows use `python`, `.venv\Scripts\activate` and a port such as `COM3`; copy the example file using Explorer or `Copy-Item` in PowerShell. Close Thonny before using mpremote, and close mpremote before opening Thonny. `--port auto` is suitable when only one MicroPython board is attached.
+On Windows, activate the environment with `.venv\Scripts\activate` and use a port such as `COM3`. `--port auto` is suitable when only one MicroPython device is connected.
 
-The uploader checks Python syntax, makes subdirectories and uploads `main.py` last. It writes project files but does not format the Pico or remove other files. Back up any existing application first.
+The uploader validates Python syntax, creates the required directories and uploads `main.py` last. It does not erase unrelated files on the Pico. See [SETUP.md](SETUP.md) for commissioning, troubleshooting and recovery instructions.
 
-See [SETUP.md](SETUP.md) for the full guide and recovery instructions.
+## API endpoints
 
-## Project layout
+| Method and path | Purpose |
+| --- | --- |
+| `GET /` | Browser dashboard |
+| `GET /api/status` | Current readings, device state, advisories and sensor health |
+| `POST /api/display/toggle` | Toggle the LCD controller between active and sleep states |
+| `GET /api/history` | Bounded RAM history as fields and rows |
+| `GET /history.csv` | Download the same history as CSV |
+| `GET /healthz` | Return 200 when both active sensors are fresh and healthy |
+
+See [API](Docs/API.md) for response schemas and behavior.
+
+## Project structure
 
 | Path | Purpose |
 | --- | --- |
-| `firmware/boot.py`, `firmware/main.py` | Startup and asynchronous application tasks |
-| `firmware/config.py` | Pins-independent application settings and thresholds |
+| `firmware/` | MicroPython application, drivers, services and web assets |
+| `firmware/config.py` | Device settings, intervals and advisory thresholds |
 | `firmware/secrets.example.py` | Credential template; local `secrets.py` is ignored |
-| `firmware/sensors/` | CRC checking, factory calibration and sensor drivers |
-| `firmware/display/` | ST7789 stripe driver and LCD layout |
-| `firmware/app/` | Sampling, data freshness, history and advisories |
-| `firmware/services/` | Wi-Fi, HTTP API and optional MQTT |
-| `firmware/www/` | Browser dashboard HTML, CSS and JavaScript |
-| `firmware/selftest.py` | I²C discovery, active sensor reads and LCD colour test |
-| `tools/` | Upload, host CSV logger and source ZIP packaging |
-| `tests/` | Host-side protocol, calculation and service tests |
-| `Docs/` | Hardware, architecture, API, integrations and validation |
+| `firmware/selftest.py` | Active-sensor and LCD hardware checks |
+| `tools/` | Upload, CSV logging and packaging utilities |
+| `tests/` | Host-side protocol, state and service tests |
+| `Docs/` | API, hardware, architecture, integration and validation details |
 
-## Useful endpoints
-
-| URL | Result |
-| --- | --- |
-| `/` | Browser dashboard |
-| `/api/status` | Current readings, device state, advisories and sensor health |
-| `POST /api/display/toggle` | Toggle the LCD controller between on and sleep states |
-| `/api/history` | Bounded RAM samples as fields plus rows |
-| `/history.csv` | Downloadable CSV of the same history |
-| `/healthz` | HTTP 200 when all sensors are fresh and healthy, otherwise 503 |
-
-Details: [API](Docs/API.md), [Hardware](Docs/HARDWARE.md), [Architecture](Docs/ARCHITECTURE.md), [Integrations](Docs/INTEGRATIONS.md).
-
-## Publish the source to your GitHub
-
-Create an empty GitHub repository, then run from the extracted project directory:
-
-```bash
-git config user.name "YOUR NAME"
-git config user.email "YOUR GITHUB EMAIL"
-git remote add origin https://github.com/YOUR-ACCOUNT/pico-sense-environment.git
-git push -u origin main
-```
-
-Before future commits, run `git status` and confirm credentials are not tracked. The repository includes `.gitignore` for `firmware/secrets.py`. If uploading through GitHub's website, upload the source files and folders, including `.github/`; do not upload `.git/` or your local secrets file.
-
-## Validate or package changes
+## Development checks
 
 ```bash
 python -m unittest discover -s tests -v
 python -m compileall -q firmware tools tests
 node --check firmware/www/app.js
-# Commit your changes, then package a clean tree:
-python tools/package.py ../pico-sense-environment.zip
 ```
 
-The current suite has **23 host tests** plus Python and JavaScript syntax checks. No physical Pico/HAT was connected during development. The physical LCD, I²C bus, Wi-Fi operation and actual memory headroom still need the supplied board self-test and commissioning checklist. See [validation](Docs/VALIDATION.md).
+The suite currently contains 23 host tests. Hardware behavior, Wi-Fi operation and thermal accuracy still require validation on the physical Pico/HAT.
 
-## Scope and practical limits
+## Limitations
 
-This is a monitoring firmware release. Advisories are local LCD/browser messages and fields in JSON/MQTT. The only remote control is the transient LCD on/off toggle; there are no pump, fan, relay or vent outputs, no battery management and no persistent remote configuration writes. Wi-Fi operation means this is not a deep-sleep solar power design.
+- HTTP and MQTT use unencrypted, unauthenticated LAN connections. Do not expose the device to the public Internet.
+- History is held in RAM and resets when the Pico reboots.
+- LCD sleep cannot remove power from the HAT's hard-wired backlight.
+- The firmware does not control pumps, fans, relays or other actuators.
+- The board is not weatherproof and is not designed for deep-sleep operation.
 
-HTTP and optional MQTT use plain TCP with no transport encryption; the dashboard and its LCD control are unauthenticated. Use a trusted LAN or isolated IoT network and keep it off the public Internet. Wi-Fi credentials never appear in API responses. History stored on the Pico is volatile and does not wear the flash through continual writes. Use the host logger or an MQTT consumer for long-term storage.
+## Documentation
 
-For a greenhouse enclosure, leave airflow to the active sensors and keep the electronics dry. The board is not weatherproof.
+- [Setup and commissioning](SETUP.md)
+- [Hardware mapping](Docs/HARDWARE.md)
+- [Firmware architecture](Docs/ARCHITECTURE.md)
+- [API reference](Docs/API.md)
+- [MQTT and Home Assistant](Docs/INTEGRATIONS.md)
+- [Validation](Docs/VALIDATION.md)
 
-## Licence and sources
+## Licence
 
-Project code is provided under [MIT](LICENSE). Drivers are implemented in this repository using device protocols and compensation equations; upstream SB Components Python files are not bundled. Primary references and the verification date are listed in [SOURCES.md](Docs/SOURCES.md).
+Licensed under the [MIT License](LICENSE). Primary hardware and protocol references are listed in [Docs/SOURCES.md](Docs/SOURCES.md).
