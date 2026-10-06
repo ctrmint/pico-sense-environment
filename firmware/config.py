@@ -12,7 +12,6 @@ WIFI_RETRY_S = 15
 
 I2C_FREQUENCY = 40_000
 ENVIRONMENT_INTERVAL_S = 10
-GAS_INTERVAL_MS = 1000
 DISPLAY_INTERVAL_S = 5
 HISTORY_INTERVAL_S = 60
 HISTORY_CAPACITY = 120  # Two hours by default; RAM only, lost at reboot.
@@ -51,8 +50,6 @@ def validate():
         raise ValueError("HISTORY_CAPACITY must be 1..240")
     if not 1 <= ENVIRONMENT_INTERVAL_S <= 3600:
         raise ValueError("ENVIRONMENT_INTERVAL_S must be 1..3600")
-    if not 500 <= GAS_INTERVAL_MS <= 10000:
-        raise ValueError("GAS_INTERVAL_MS must be 500..10000")
     if min(DISPLAY_INTERVAL_S, HISTORY_INTERVAL_S, SENSOR_RETRY_S,
            WIFI_RETRY_S, WIFI_CONNECT_TIMEOUT_S, MQTT_INTERVAL_S,
            HTTP_TIMEOUT_S, MQTT_TIMEOUT_S) < 1:

@@ -7,6 +7,8 @@ class SHT31:
     def __init__(self, i2c, address=0x45):
         self.i2c = i2c
         self.address = address
+        # Explicitly disable the SHT31 heater.
+        self.i2c.writeto(self.address, b"\x30\x66")
 
     async def read(self):
         # High repeatability, no clock stretching. Maximum conversion time 15 ms.

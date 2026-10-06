@@ -4,7 +4,7 @@ A self-contained MicroPython environmental monitor for the **Raspberry Pi Pico W
 
 ## What is included
 
-- Four sensor drivers: SHT31, BME280, SGP40 and TCS34725.
+- Active SHT31 temperature/humidity and BME280 pressure sensing.
 - A 240 × 135 colour LCD dashboard, using a 7.5 KiB stripe buffer.
 - Wi-Fi connection and automatic reconnect, with offline sensing and LCD operation.
 - A responsive browser dashboard hosted directly by the Pico, without CDNs or a cloud service.
@@ -13,7 +13,7 @@ A self-contained MicroPython environmental monitor for the **Raspberry Pi Pico W
 - Optional MQTT 3.1.1 QoS 0 publishing, disabled by default.
 - A host CSV logger for persistent readings, a hardware self-test, upload utility and GitHub Actions checks.
 
-**Measurement names matter:** `voc_raw` is the SGP40 raw gas signal, not a VOC Index, AQI, CO₂ reading or concentration. `voc_index` is deliberately `null`. `light_raw` is the TCS34725 clear-channel count, not lux. Pressure is local station pressure. No unvalidated conversions or “good air” classifications are applied.
+The SGP40 gas sensor and TCS34725 colour sensor are deliberately not sampled. At startup the firmware sends the SGP40 heater-off command and powers down the TCS34725 ADC. Their readings are omitted from state, history, APIs, MQTT and dashboards. Pressure is local station pressure.
 
 ## Quick start
 
@@ -55,7 +55,7 @@ See [SETUP.md](SETUP.md) for the full guide and recovery instructions.
 | `firmware/app/` | Sampling, data freshness, history and advisories |
 | `firmware/services/` | Wi-Fi, read-only HTTP and optional MQTT |
 | `firmware/www/` | Browser dashboard HTML, CSS and JavaScript |
-| `firmware/selftest.py` | I²C discovery, sensor reads and LCD colour test |
+| `firmware/selftest.py` | I²C discovery, active sensor reads and LCD colour test |
 | `tools/` | Upload, host CSV logger and source ZIP packaging |
 | `tests/` | Host-side protocol, calculation and service tests |
 | `Docs/` | Hardware, architecture, API, integrations and validation |
@@ -95,15 +95,15 @@ node --check firmware/www/app.js
 python tools/package.py ../pico-sense-environment.zip
 ```
 
-The original release passed **24 host tests** plus Python and JavaScript syntax checks. No physical Pico/HAT was connected during development. The physical LCD, I²C bus, Wi-Fi operation and actual memory headroom still need the supplied board self-test and commissioning checklist. See [validation](Docs/VALIDATION.md).
+The current suite has **22 host tests** plus Python and JavaScript syntax checks. No physical Pico/HAT was connected during development. The physical LCD, I²C bus, Wi-Fi operation and actual memory headroom still need the supplied board self-test and commissioning checklist. See [validation](Docs/VALIDATION.md).
 
 ## Scope and practical limits
 
-This is a monitoring firmware release. Advisories are local LCD/browser messages and fields in JSON/MQTT. There are no pump, fan, relay or vent outputs, no battery management and no remote configuration writes. Continuous SGP40 sampling and Wi-Fi mean this is not a deep-sleep solar power design.
+This is a monitoring firmware release. Advisories are local LCD/browser messages and fields in JSON/MQTT. There are no pump, fan, relay or vent outputs, no battery management and no remote configuration writes. Wi-Fi operation means this is not a deep-sleep solar power design.
 
 HTTP and optional MQTT use plain TCP with no transport encryption; the dashboard is read-only and unauthenticated. Use a trusted LAN or isolated IoT network and keep it off the public Internet. Wi-Fi credentials never appear in API responses. History stored on the Pico is volatile and does not wear the flash through continual writes. Use the host logger or an MQTT consumer for long-term storage.
 
-For a greenhouse enclosure, leave airflow to the sensors, keep electronics dry and consider the SGP40's non-condensing humidity limits. The board is not weatherproof.
+For a greenhouse enclosure, leave airflow to the active sensors and keep the electronics dry. The board is not weatherproof.
 
 ## Licence and sources
 

@@ -4,7 +4,7 @@ Target: Raspberry Pi **Pico WH** (RP2040 + wireless, soldered headers) and SB Co
 
 | Interface | Pico GPIO / peripheral | Notes |
 | --- | --- | --- |
-| Sensor SDA | GP6 / I²C1 | All four sensors share the bus |
+| Sensor SDA | GP6 / I²C1 | All onboard sensors share the bus |
 | Sensor SCL | GP7 / I²C1 | 40 kHz by default, matching the board example |
 | SHT31 address selection | GP3, held high | Selects address `0x45` on this HAT |
 | LCD clock | GP10 / SPI1 | 10 MHz |
@@ -15,10 +15,12 @@ Target: Raspberry Pi **Pico WH** (RP2040 + wireless, soldered headers) and SB Co
 
 | I²C address | Device | Measurement |
 | --- | --- | --- |
-| `0x29` | TCS34725 | Clear/red/green/blue counts |
+| `0x29` | TCS34725 | Disabled; power and ADC explicitly off |
 | `0x45` | SHT31 | Primary temperature and relative humidity |
-| `0x59` | SGP40 | Raw gas signal, compensated using SHT31 readings where fresh |
+| `0x59` | SGP40 | Disabled; heater explicitly off |
 | `0x76` | BME280 | Station pressure plus comparison temperature/humidity |
+
+Only the SHT31 and BME280 are sampled. The disabled devices can still appear in an I²C address scan because shutdown does not remove them electrically from the bus.
 
 The ST7789 display is 240 × 135 in landscape orientation. The addressed controller region begins at column 40 and row 53. The driver uses MADCTL `0x70`, RGB565 output and 16-line strips. Native little-endian framebuffer colours are byte-swapped for the panel wire format. The self-test checks the visual result on the actual LCD.
 

@@ -4,15 +4,15 @@
 
 ## Tasks and shared state
 
-Each sensor has an independent task. Measurement delays yield to the event loop, while individual I²C transactions are synchronous. Commands/readouts for different sensor addresses can interleave safely. No other controller or self-test should use the bus while the application is running.
+Each active sensor has an independent task. Measurement delays yield to the event loop, while individual I²C transactions are synchronous. Commands/readouts for different sensor addresses can interleave safely. No other controller or self-test should use the bus while the application is running.
 
-SHT31 uses a CRC-checked single-shot reading. BME280 uses forced mode and factory calibration. TCS34725 uses continuous conversion at fixed 4× gain and approximately 100.8 ms integration, with saturation flagged. SGP40 is measured at a default one-second cadence; fresh SHT31 values provide compensation, otherwise the documented defaults are used and explicitly identified.
+SHT31 uses a CRC-checked single-shot reading and explicitly disables its optional heater during initialization. BME280 uses forced mode and factory calibration. The SGP40 and TCS34725 have no sampling tasks: startup sends the SGP40 heater-off command and clears the TCS34725 ENABLE register so its power and ADC are off.
 
 `State` keeps the latest readings and per-sensor last-success time. A failed read clears that sensor's current measurements. A task that stops updating is marked stale at snapshot time, and its readings become null in responses, display and history. Three consecutive read errors cause driver reinitialisation after the retry interval. Missing devices are rescanned every 30 seconds.
 
 The housekeeping task accumulates uptime using wrap-safe tick differences once per second. There is no wall-clock assertion or dependency on NTP. History is an allocated ring buffer of tuples, bounded to the configured capacity. JSON history and CSV are streamed incrementally; responses snapshot row references so sampling cannot corrupt a download.
 
-The LCD task updates eight text strips and yields between them. It avoids a full-screen 64,800-byte framebuffer. Display faults are reported separately from sensor faults.
+The LCD task updates six text strips and yields between them. It avoids a full-screen 64,800-byte framebuffer. Display faults are reported separately from sensor faults.
 
 ## Networking
 
@@ -28,4 +28,4 @@ Expected peripheral/network faults are handled locally. Unexpected programming e
 
 Threshold advisories are messages, not control decisions. Add actuation in a separate task only after defining output wiring, maximum run times, safe boot states, sensor failure behaviour and manual override. This release does not operate irrigation pumps or fans.
 
-For a real VOC Index, integrate and validate Sensirion's Gas Index Algorithm with its required cadence and learning behaviour. Do not scale or relabel raw gas counts as an index. The API reserves `voc_index: null` for compatibility until that functionality is added.
+Gas, ambient-light and colour sensing are deliberately outside the active firmware. Enabling them would require an explicit power, self-heating and measurement-quality review.
